@@ -1,0 +1,8 @@
+tmp
+env.py
+alembic.ini
+structure.txt
+media/original/
+media/processed/
+**/migrations/**
+!**/migrations

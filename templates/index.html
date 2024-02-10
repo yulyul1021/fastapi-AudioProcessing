@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="/static/bootstrap.min.css">
+    <title>Title</title>
+</head>
+{% extends 'base.html' %}
+{% block content %}
+<div class="container my-5">
+    <button type="button" class="btn btn-secondary" id="audioOnly">audio only</button>
+    <button type="button" class="btn btn-secondary" id="textOnly">text only</button>
+    <button type="button" class="btn btn-secondary" id="audioAndText">audio and text</button>
+
+    <form method="post" id="upload_form" enctype="multipart/form-data" class="my-5">
+        <div class="row">
+            <div class="col-sm-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <!--오디오 파일 업로드-->
+                        <h5 class="card-title">Upload Audio</h5>
+                        <div class="form-group my-4" name="original_audio_file" id="original_audio_file">
+                            <input type="file" id="file_input" name="original_audio_file"
+                                   accept="audio/wav"/>
+                        </div>
+                        <!--오디오 파일 업로드 끝-->
+                        <hr class="hr"/>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Record Audio</h5>
+                        <!--녹음-->
+                        <div class="my-5">
+                            <button type="button" class="btn btn-success" id="recordingStart">Start Recording
+                            </button>
+                            <button type="button" class="btn btn-danger" id="recordingStop" disabled>Stop Recording
+                            </button>
+                            <button type="button" class="btn btn-primary" id="recordingUpload" onclick="setBlob()"
+                                    disabled>Upload
+                            </button>
+
+                            <audio id="playAudio" controls class="w-100 mt-3" style=""></audio>
+                        </div>
+                        <!--녹음 끝-->
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Enter Text</h5>
+                        <!-- Text 입력 폼 -->
+                        <div class="form-group my-5" id="textForm">
+                                <textarea class="form-control" name="original_text" id="original_text" rows="3"
+                                          placeholder="Enter text here..."></textarea>
+                        </div>
+                        <!-- Text 입력 폼 끝 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3" onclick="return checkForm()">Input</button>
+    </form>
+
+    <!-- 구분선 -->
+    <hr class="m3-5">
+    <!-- 구분선 끝 -->
+
+
+    {% if audio_data.0 %}
+    <!--원본 오디오 재생
+    {% if audio_data.0.original_audio %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h3 class="card-title">Original Audio</h3>
+            <audio controls>
+                <source src="{{ audio_data.0.original_audio.url }}" type="audio/wav">
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+    </div>
+    {% endif %}
+    원본 오디오 재생 끝-->
+
+    <!--원본 텍스트
+    {% if audio_data.0.original_text %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h3 class="card-title mb-3">Original Text</h3>
+            {% for data in audio_data %}
+            <p class="card-text">{{ data.original_text }}</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    원본 텍스트 끝-->
+
+    <!-- 구분선
+    <hr class="my-5">
+    구분선 끝 -->
+
+    <h2 class="mb-4">Processed</h2>
+
+    {% for data in audio_data %}
+    <!--가공 후 오디오 재생-->
+    <div class="card mb-4">
+        <div class="card-body">
+            {% if data.onset %}
+            <small class="mb-1">onset: {{ data.onset }} / offset: {{ data.offset }}</small>
+            {% endif %}
+            <p class="card-text">{{ data.original_text }}</p>
+            <audio controls>
+                <source src="{{ data.original_audio_path }}" type="audio/wav">
+                Your browser does not support the audio element.
+            </audio>
+            <hr class="my-2">
+            <p class="card-text">{{ data.processed_text }}</p>
+            <audio controls>
+                <source src="{{ data.processed_audio_path }}" type="audio/wav">
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+    </div>
+    <!--가공 후 오디오 끝-->
+    {% endfor %}
+
+    <!--가공 후 텍스트
+    {% if audio_data.processed_text %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h3 class="card-title">Processed Text</h3>
+            <p class="card-text">{{ audio_data.processed_text }}</p>
+        </div>
+    </div>
+    {% endif %}-->
+    <!--가공 후 텍스트 끝-->
+    {% endif %}
+</div>
+
+<script src="/static/bootstrap.min.js"></script>
+<script src="/static/recorder.js"></script>
+<script>
+        //webkitURL is deprecated but nevertheless
+        URL = window.URL || window.webkitURL;
+
+        var gumStream;              //stream from getUserMedia()
+        var rec;                    //Recorder.js object
+        var input;                  //MediaStreamAudioSourceNode we'll be recording
+
+        // shim for AudioContext when it's not avb.
+        var AudioContext = window.AudioContext || window.webkitAudioContext;
+        var audioContext //new audio context to help us record
+
+
+        const startButton = document.getElementById('recordingStart');
+        const stopButton = document.getElementById('recordingStop');
+        const uploadButton = document.getElementById('recordingUpload');
+        const audioElement = document.getElementById('playAudio');
+
+        let audioBlob;
+
+        function startRecording() {
+
+            // Disable the record button until we get a success or fail from getUserMedia()
+            startButton.disabled = true;
+            stopButton.disabled = false;
+
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(function (stream) {
+                console.log("getUserMedia() success, stream created, initializing Recorder.js ...");
+
+                audioContext = new AudioContext({ sampleRate: 44100 });
+
+                // assign to gumStream for later use
+                gumStream = stream;
+
+                // use the stream
+                input = audioContext.createMediaStreamSource(stream);
+
+                rec = new Recorder(input, { numChannels: 2 })
+
+                //start the recording process
+                rec.record()
+
+            }).catch(function (err) {
+                alert(`error: ${err.name}: ${err.message}`);
+                startButton.disabled = false
+                stopButton.disabled = true;
+            });
+        }
+
+        function stopRecording() {
+            try {
+                console.log("stopButton clicked");
+
+                //disable the stop button, enable the record too allow for new recordings
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                uploadButton.disabled = false;
+
+                // tell the recorder to stop the recording
+                rec.stop(); //stop microphone access
+                gumStream.getAudioTracks()[0].stop();
+
+                //create the wav blob and pass it on to createDownloadLink
+                rec.exportWAV(createDownloadLink);
+
+            } catch (err) {
+                alert(`error: ${err.name}: ${err.message}`);
+            }
+        }
+
+        function createDownloadLink(blob) {
+            audioBlob = blob;
+            var url = URL.createObjectURL(blob);
+
+            //add controls to the <audio> element
+            audioElement.controls = true;
+            audioElement.src = url;
+        }
+
+        function setBlob() {
+            let fileInputElement = document.getElementById('file_input');
+            let container = new DataTransfer();
+            let file = new File([audioBlob], "recordingFile.wav", {
+                type: "audio/wav",
+                lastModified: new Date().getTime()
+            });
+            container.items.add(file);
+
+            fileInputElement.files = container.files;
+        }
+
+        startButton.addEventListener('click', startRecording);
+        stopButton.addEventListener('click', stopRecording);
+
+
+</script>
+
+<script>
+    const audioOnlyButton = document.getElementById('audioOnly');
+    const textOnlyButton = document.getElementById('textOnly');
+    const audioAndTextButton = document.getElementById('audioAndText');
+
+    const audioSection = document.getElementById('original_audio').parentNode.parentNode.parentNode;
+    const recordSection = document.getElementById('recordingStart').parentNode.parentNode.parentNode;
+    const textSection = document.getElementById('textForm').parentNode.parentNode.parentNode;
+
+    const audioInput = document.getElementById('file_input');
+    const videoInput = document.getElementById('video_file_input');
+    const text = document.getElementById('original_text');
+
+    audioSection.style.display = 'none';
+    recordSection.style.display = 'none';
+    textSection.style.display = 'none';
+
+    audioOnlyButton.addEventListener('click', function () {
+        audioSection.style.display = 'block';
+        recordSection.style.display = 'block';
+        textSection.style.display = 'none';
+    });
+
+    textOnlyButton.addEventListener('click', function () {
+        audioSection.style.display = 'none';
+        recordSection.style.display = 'none';
+        textSection.style.display = 'block';
+        audioInput.value = null;
+    });
+
+    audioAndTextButton.addEventListener('click', function () {
+        audioSection.style.display = 'block';
+        recordSection.style.display = 'block';
+        textSection.style.display = 'block';
+    });
+
+    function checkForm() {
+        if (!audioInput.files[0] && !videoInput.files[0] && !text.value.trim()) {
+            alert('폼 확인 후 다시 제출 해주세요.');
+            return false;
+        }
+        if (audioSection.style.display === 'block' && textSection.style.display === 'block') {
+            if (!audioInput.files[0] || !text.value.trim()) {
+                alert('오디오 파일 업로드 및 텍스트를 입력해 주세요.');
+                return false;
+            }
+        } else if (audioSection.style.display === 'block' && recordSection.style.display === 'block') {
+            if (!videoInput.files[0] && !audioInput.files[0]) {
+                alert('오디오 파일을 업로드 해주세요.');
+                return false;
+            }
+        } else if (audioSection.style.display !== 'block' && textSection.style.display === 'block') {
+            if (!text.value.trim()) {
+                alert('텍스트를 입력해 주세요.');
+                return false;
+            }
+        }
+    }
+
+</script>
+{% endblock %}
