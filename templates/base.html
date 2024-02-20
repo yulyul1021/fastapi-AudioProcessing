@@ -16,12 +16,18 @@
   </button>
   <div class="collapse navbar-collapse" id="navbarNav">
     <ul class="navbar-nav">
+        {% if is_login %}
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('logout') }}">로그아웃({{current_user.username}})</a>
+      </li>
+        {% else %}
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('login') }}">로그인</a>
       </li>
       <li class="nav-item">
         <a class="nav-link" href="{{ url_for('create_user') }}">회원가입</a>
       </li>
+        {% endif %}
     </ul>
   </div>
 </nav>

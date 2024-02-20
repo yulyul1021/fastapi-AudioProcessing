@@ -115,13 +115,13 @@
             {% endif %}
             <p class="card-text">{{ data.original_text }}</p>
             <audio controls>
-                <source src="{{ data.original_audio_path }}" type="audio/wav">
+                <source src="{{ url_for('media', path=data.original_audio_path) }}" type="audio/wav">
                 Your browser does not support the audio element.
             </audio>
             <hr class="my-2">
             <p class="card-text">{{ data.processed_text }}</p>
             <audio controls>
-                <source src="{{ data.processed_audio_path }}" type="audio/wav">
+                <source src="{{ url_for('media', path=data.processed_audio_path) }}" type="audio/wav">
                 Your browser does not support the audio element.
             </audio>
         </div>

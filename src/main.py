@@ -7,6 +7,7 @@ from .user import user_router
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 app.include_router(audio_router.router)
 app.include_router(user_router.router)

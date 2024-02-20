@@ -5,12 +5,12 @@ from fastapi import APIRouter, Request, Depends, File, UploadFile
 from datetime import datetime
 
 from sqlalchemy.orm import Session
-from starlette.responses import RedirectResponse
 
 from fastapi.templating import Jinja2Templates
 from src.database import get_db
-from .audio_utils import *
 from src.models import Audio
+from .audio_utils import *
+from src.user.user_router import get_current_user
 
 
 templates = Jinja2Templates(directory="templates")
@@ -19,13 +19,21 @@ router = APIRouter(tags=["audio"])
 vad = WebRTCVAD()
 
 MEDIA_DIR = "media/"
-ORIGINAL_AUDIO_DIR  = "media/original/"
-PROCESSED_AUDIO_DIR = "media/processed/"
+ORIGINAL_AUDIO_DIR  = "original/"
+PROCESSED_AUDIO_DIR = "processed/"
 
 
 @router.get("/", name="index")
-def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "audio_data": None})
+def index(request: Request, db: Annotated[Session, Depends(get_db)]):
+    access_token = request.cookies.get('access_token')
+    if access_token:
+        is_login = True
+        current_user = get_current_user(access_token, db)
+    else:
+        is_login = False
+        current_user = None
+    return templates.TemplateResponse("index.html", {"request": request, "audio_data": None,
+                                                     "is_login": is_login, "current_user": current_user})
 
 
 @router.post("/")
@@ -65,10 +73,10 @@ async def post_index(request:       Request,
                           )
 
         # dir에 오리지널, 프로세스 파일 저장
-        with open(original_filepath, "wb") as f:
+        with open(MEDIA_DIR + original_filepath, "wb") as f:
             f.write(wav_audios[i].getvalue())
 
-        with open(processed_filepath, "wb") as f:
+        with open(MEDIA_DIR + processed_filepath, "wb") as f:
             f.write(tts_file.getvalue())
 
         audio_data.append(new_audio)
